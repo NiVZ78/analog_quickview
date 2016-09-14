@@ -63,7 +63,7 @@ static void update_points(){
   
   int border = 8;
   
-  GRect dial_bounds = layer_get_unobstructed_bounds(s_dial_layer);
+  GRect dial_bounds = layer_get_unobstructed_bounds(s_main_window_layer);
   s_main_window_center = grect_center_point(&dial_bounds);
 
   hand_length = dial_bounds.size.w > dial_bounds.size.h ? (dial_bounds.size.h/2)*80/100 : (dial_bounds.size.w/2)*80/100;
@@ -114,14 +114,27 @@ static void dial_update_proc(Layer *this_layer, GContext *ctx) {
 }
 
 
+void prv_unobstructed_change(AnimationProgress progress, void *context) {
+  
+  update_points();
+  //layer_mark_dirty(s_dial_layer);
+  
+  int prg = (int)progress;
+  
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "PRG: %d", prg);
+  
+}
+
 
 static void main_window_load(Window *window) {
   
   // get the main window layer
   s_main_window_layer = window_get_root_layer(s_main_window);
-    
+  
+  window_set_background_color(s_main_window, GColorBlack);
+  
   // Create the layer we will draw on
-  s_dial_layer = layer_create(layer_get_unobstructed_bounds(s_main_window_layer));
+  s_dial_layer = layer_create(layer_get_bounds(s_main_window_layer));
   
   // Add the layer to our main window layer
   layer_add_child(s_main_window_layer, s_dial_layer);
@@ -130,6 +143,15 @@ static void main_window_load(Window *window) {
   layer_set_update_proc(s_dial_layer, dial_update_proc);
   
   update_points();
+  
+  #if PBL_API_EXISTS(unobstructed_area_service_subscribe)
+      UnobstructedAreaHandlers handlers = {
+    .change = prv_unobstructed_change
+  };
+  unobstructed_area_service_subscribe(handlers, NULL);
+  #endif
+  
+  
 }
 
 
@@ -137,13 +159,6 @@ static void main_window_unload(Window *window) {
     
 }
 
-
-void prv_unobstructed_change(AnimationProgress progress, void *context) {
-  
-  update_points();
-  layer_mark_dirty(s_dial_layer);
-  
-}
 
 static void init(void) {
   
@@ -158,14 +173,6 @@ static void init(void) {
     .load = main_window_load,
     .unload = main_window_unload,
   });
-  
-
-#if PBL_API_EXISTS(unobstructed_area_service_subscribe)
-    UnobstructedAreaHandlers handlers = {
-  .change = prv_unobstructed_change
-};
-unobstructed_area_service_subscribe(handlers, NULL);
-#endif
   
   // show the window on screen
   window_stack_push(s_main_window, true);
